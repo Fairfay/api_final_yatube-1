@@ -1,19 +1,12 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import viewsets, permissions
-from django.contrib.auth import get_user_model
-from posts.models import Post, Group, Comment, Follow
+from rest_framework import filters, pagination, permissions, viewsets
+
+from posts.models import Follow, Group, Post
+
 from .permissions import FollowObjectPermission, IsOwnerOrReadOnly
-from .serializers import (
-    PostSerializer,
-    PostDetailSerializer,
-    GroupSerializer,
-    GroupDetailSerializer,
-    CommentSerializer,
-    FollowSerializer
-)
-
-
-User = get_user_model()
+from .serializers import (CommentSerializer, FollowSerializer,
+                          GroupDetailSerializer, GroupSerializer,
+                          PostDetailSerializer, PostSerializer)
 
 
 class PostViewSet(viewsets.ModelViewSet):
@@ -22,6 +15,7 @@ class PostViewSet(viewsets.ModelViewSet):
     """
     queryset = Post.objects.all()
     permission_classes = (IsOwnerOrReadOnly,)
+    pagination_class = pagination.LimitOffsetPagination
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -37,7 +31,7 @@ class PostViewSet(viewsets.ModelViewSet):
 
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    Обработка запросов в постам.
+    Обработка запросов к группам.
     """
     queryset = Group.objects.all()
 
@@ -49,7 +43,7 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
 
 class CommentViewSet(viewsets.ModelViewSet):
     """
-    Обработка запросов к комментариям поста.
+    Обработка запросов к комментариям.
     """
     serializer_class = CommentSerializer
     permission_classes = (IsOwnerOrReadOnly,)
@@ -87,6 +81,8 @@ class FollowViewSet(viewsets.ModelViewSet):
         permissions.IsAuthenticated,
         FollowObjectPermission
     )
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('following__username',)
 
     def get_queryset(self):
         user = self.request.user

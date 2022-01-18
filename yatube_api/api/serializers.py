@@ -1,20 +1,17 @@
 import textwrap
+
 from rest_framework import serializers
 from rest_framework.relations import SlugRelatedField
 from rest_framework.validators import UniqueTogetherValidator
-# "token": "fc8c13b5652f666d529af6ba4d9f83244581f30e"
-from django.contrib.auth import get_user_model
-from posts.models import Group, Post, Comment, Follow
+
+from posts.models import Comment, Follow, Group, Post, User
 from yatube_api.settings import DATETIME_FORMAT
-
-
-User = get_user_model()
 
 
 class GroupDetailSerializer(serializers.ModelSerializer):
     """
     Обслуживает модель 'Group',
-    используется при просмотре группы.
+    используется при просмотре группы по ID.
     """
     class Meta:
         model = Group
@@ -36,21 +33,38 @@ class PostDetailSerializer(serializers.ModelSerializer):
     Обслуживает модель 'Post',
     используется при работе с одним постом.
     """
-    author = SlugRelatedField(slug_field='username', read_only=True)
-    group = GroupSerializer(required=False)
-    group_id = serializers.IntegerField(required=False, write_only=True)
-    pub_date = serializers.DateTimeField(required=False, format=DATETIME_FORMAT)
+    author = SlugRelatedField(
+        slug_field='username',
+        read_only=True
+    )
+    group = serializers.PrimaryKeyRelatedField(
+        queryset=Group.objects.all(),
+        required=False
+    )
+    group_info = GroupSerializer(
+        read_only=True,
+        source='group'
+    )
+    pub_date = serializers.DateTimeField(
+        read_only=True,
+        format=DATETIME_FORMAT
+    )
 
     class Meta:
-        fields = ('id', 'author', 'text', 'pub_date', 'group', 'group_id', 'comments')
-        read_only_fields = ('author', 'pub_date', 'comments')
+        fields = (
+            'id', 'author',
+            'text', 'pub_date',
+            'group', 'group_info',
+            'comments'
+        )
+        read_only_fields = ('author', 'group_info', 'pub_date', 'comments')
         model = Post
 
     def validate_text(self, value):
         """Валидирует текст поста, он не должен быть пустым."""
         if not value:
             raise serializers.ValidationError(
-                'Невозможно опубликовать пустой пост!'
+                'Невозможно опубликовать пустой пост.'
             )
         return value
 
@@ -61,15 +75,32 @@ class PostSerializer(serializers.ModelSerializer):
     используется при работе со списком постов.
     """
     text = serializers.SerializerMethodField()
-    author = SlugRelatedField(slug_field='username', read_only=True)
-    group = GroupSerializer(required=False)
-    group_id = serializers.IntegerField(required=False, write_only=True)
+    author = SlugRelatedField(
+        slug_field='username',
+        read_only=True
+    )
+    group = serializers.PrimaryKeyRelatedField(
+        queryset=Group.objects.all(),
+        required=False
+    )
+    group_info = GroupSerializer(
+        read_only=True,
+        source='group'
+    )
     comments = serializers.SerializerMethodField(required=False)
-    pub_date = serializers.DateTimeField(required=False, format=DATETIME_FORMAT)
+    pub_date = serializers.DateTimeField(
+        read_only=True,
+        format=DATETIME_FORMAT
+    )
 
     class Meta:
-        fields = ('id', 'author', 'text', 'pub_date', 'group', 'group_id', 'comments')
-        read_only_fields = ('author', 'pub_date', 'comments')
+        fields = (
+            'id', 'author',
+            'text', 'pub_date',
+            'group', 'group_info',
+            'comments'
+        )
+        read_only_fields = ('author', 'group_info', 'pub_date', 'comments')
         model = Post
 
     def get_text(self, obj):
@@ -78,25 +109,31 @@ class PostSerializer(serializers.ModelSerializer):
         return textwrap.shorten(text, width=100)
 
     def get_comments(self, obj):
-        """Отображает количество комментариев у каждого поста."""
+        """Отображает количество комментариев к каждому посту."""
         return obj.comments.all().count()
 
     def validate_text(self, value):
         """Валидирует текст поста, он не должен быть пустым."""
         if not value:
             raise serializers.ValidationError(
-                'Невозможно опубликовать пустой пост!'
+                'Невозможно опубликовать пустой пост.'
             )
         return value
 
 
 class CommentSerializer(serializers.ModelSerializer):
     """
-    Сериалайзер для обслуживания модели 'Comment',
+    Обслуживаниет модель 'Comment',
     дает возможность управлять комментариями к постам.
     """
-    author = serializers.SlugRelatedField(read_only=True, slug_field='username')
-    created = serializers.DateTimeField(required=False, format=DATETIME_FORMAT)
+    author = serializers.SlugRelatedField(
+        read_only=True,
+        slug_field='username'
+    )
+    created = serializers.DateTimeField(
+        read_only=True,
+        format=DATETIME_FORMAT
+    )
 
     class Meta:
         fields = '__all__'
@@ -107,15 +144,15 @@ class CommentSerializer(serializers.ModelSerializer):
         """Валидирует текст комментария, он не должен быть пустым."""
         if not value:
             raise serializers.ValidationError(
-                'Невозможно опубликовать пустой пост!'
+                'Невозможно опубликовать пустой комментарий.'
             )
         return value
 
 
 class FollowSerializer(serializers.ModelSerializer):
     """
-    Сериалайзер для обслуживания модели 'Follow'
-    - подписки/отписки на авторов.
+    Обслуживаниет модель 'Follow'
+    - реализация подписки/отписки на авторов.
     """
     user = serializers.SlugRelatedField(
         default=serializers.CurrentUserDefault(),
@@ -126,9 +163,10 @@ class FollowSerializer(serializers.ModelSerializer):
         queryset=User.objects.all(),
         slug_field='username',
     )
+    following_posts = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
-        fields = '__all__'
+        fields = ('id', 'user', 'following', 'following_posts')
         model = Follow
         validators = [
             UniqueTogetherValidator(
@@ -138,7 +176,14 @@ class FollowSerializer(serializers.ModelSerializer):
             )
         ]
 
+    def get_following_posts(self, obj):
+        """Выводит количество публикаций подписки."""
+        following = obj.following
+        following_posts = following.posts.all().count()
+        return following_posts
+
     def validate_following(self, value):
+        """Проверяет и запрещает подписку на самого себя."""
         current_user = self.context.get('request').user
         username = current_user.username.lower()
         following = value.username.lower()

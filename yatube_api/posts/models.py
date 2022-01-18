@@ -72,4 +72,6 @@ class Follow(models.Model):
         ]
 
     def __str__(self):
-        return f'{self.user.username}: активна подписка на {self.following.username}'
+        user = self.user.username
+        following = self.following.username
+        return f'{user} подписан на {following}'
