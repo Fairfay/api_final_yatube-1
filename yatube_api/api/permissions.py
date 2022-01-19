@@ -13,21 +13,15 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
         )
 
     def has_object_permission(self, request, view, obj):
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        return obj.author == request.user
+        return (
+            request.method in permissions.SAFE_METHODS
+            or obj.author == request.user
+        )
 
 
 class FollowObjectPermission(permissions.BasePermission):
     """
-    Запрет на PUT/PATCH запросы к модели Follow,
-    проверка прав при DELETE запросе
-    и запрет просмотра чужой подписки.
+    Запрещает запросы пользователя к чужим подпискам.
     """
-    def has_permission(self, request, view):
-        return request.method not in ('PUT', 'PATCH')
-
     def has_object_permission(self, request, view, obj):
-        if request.method == 'DELETE':
-            return request.user == obj.user
         return request.user == obj.user

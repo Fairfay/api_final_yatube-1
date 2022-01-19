@@ -1,12 +1,12 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import filters, pagination, permissions, viewsets
-
 from posts.models import Follow, Group, Post
+from rest_framework import filters, pagination, permissions, viewsets
 
 from .permissions import FollowObjectPermission, IsOwnerOrReadOnly
 from .serializers import (CommentSerializer, FollowSerializer,
                           GroupDetailSerializer, GroupSerializer,
                           PostDetailSerializer, PostSerializer)
+from .viewsets import CreateListRetrieveDeleteViewSet
 
 
 class PostViewSet(viewsets.ModelViewSet):
@@ -71,7 +71,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         )
 
 
-class FollowViewSet(viewsets.ModelViewSet):
+class FollowViewSet(CreateListRetrieveDeleteViewSet):
     """
     Обработка запросов к подпискам.
     """
@@ -79,7 +79,7 @@ class FollowViewSet(viewsets.ModelViewSet):
     serializer_class = FollowSerializer
     permission_classes = (
         permissions.IsAuthenticated,
-        FollowObjectPermission
+        FollowObjectPermission,
     )
     filter_backends = (filters.SearchFilter,)
     search_fields = ('following__username',)

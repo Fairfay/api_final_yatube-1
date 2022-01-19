@@ -1,10 +1,10 @@
 import textwrap
 
+from posts.models import Comment, Follow, Group, Post, User
 from rest_framework import serializers
 from rest_framework.relations import SlugRelatedField
 from rest_framework.validators import UniqueTogetherValidator
 
-from posts.models import Comment, Follow, Group, Post, User
 from yatube_api.settings import DATETIME_FORMAT
 
 
@@ -151,7 +151,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
 class FollowSerializer(serializers.ModelSerializer):
     """
-    Обслуживаниет модель 'Follow'
+    Обслуживает модель 'Follow'
     - реализация подписки/отписки на авторов.
     """
     user = serializers.SlugRelatedField(
@@ -163,10 +163,9 @@ class FollowSerializer(serializers.ModelSerializer):
         queryset=User.objects.all(),
         slug_field='username',
     )
-    following_posts = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
-        fields = ('id', 'user', 'following', 'following_posts')
+        fields = ('user', 'following')
         model = Follow
         validators = [
             UniqueTogetherValidator(
@@ -175,12 +174,6 @@ class FollowSerializer(serializers.ModelSerializer):
                 message='Такая подписка уже есть.'
             )
         ]
-
-    def get_following_posts(self, obj):
-        """Выводит количество публикаций подписки."""
-        following = obj.following
-        following_posts = following.posts.all().count()
-        return following_posts
 
     def validate_following(self, value):
         """Проверяет и запрещает подписку на самого себя."""
